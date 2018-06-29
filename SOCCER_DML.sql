@@ -526,28 +526,22 @@ SELECT B.TEAM_NAME     팀명
 -- 각 구단별 선수들 평균키가 삼성 블루윙즈팀의
 -- 평균키보다 작은 팀의 이름과 해당 팀의 평균키를
 -- 구하시오
-
-SELECT A.*
-  FROM (  SELECT (SELECT TEAM_NAME
-                    FROM TEAM
-                   WHERE TEAM_ID LIKE T.TEAM_ID) TEAM_ID,
-                 ROUND (AVG (P.HEIGHT), 2) AHEIGHT
-            FROM PLAYER P JOIN TEAM T ON P.TEAM_ID LIKE T.TEAM_ID
-           WHERE P.HEIGHT IS NOT NULL
-        GROUP BY T.TEAM_ID
-        ORDER BY AHEIGHT DESC) A
- WHERE AHEIGHT <
-       (SELECT B.AHEIGHT
-          FROM (  SELECT (SELECT TEAM_NAME
-                            FROM TEAM
-                           WHERE TEAM_ID LIKE T.TEAM_ID)
-                             TEAM_ID,
-                         AVG (P.HEIGHT)
-                             AHEIGHT
-                    FROM TEAM T JOIN PLAYER P ON T.TEAM_ID LIKE P.TEAM_ID
-                   WHERE T.TEAM_NAME LIKE '삼성블루윙즈'
-                GROUP BY T.TEAM_ID) B);
-
+SELECT 
+        (SELECT TEAM_NAME
+        FROM TEAM
+        WHERE TEAM_ID LIKE T.TEAM_ID) TEAM_ID, ROUND(AVG(P.HEIGHT),1) 평균키
+FROM PLAYER P
+    JOIN TEAM T
+    ON T.TEAM_ID LIKE P.TEAM_ID
+GROUP BY T.TEAM_ID
+HAVING AVG(P.HEIGHT)<
+    (SELECT AVG(P1.HEIGHT)
+     FROM PLAYER P1
+        JOIN TEAM T1
+        ON P1.TEAM_ID LIKE T1.TEAM_ID
+     WHERE T1.TEAM_NAME LIKE '삼성블루윙즈');
+                      
+                
 -- 028
 -- 2012년 경기 중에서 점수차가 가장 큰 경기 전부
 
@@ -565,12 +559,32 @@ SELECT B.SCHE_DATE                    경기일,
                    WHERE     SC.SCHE_DATE LIKE '2012%'
                          AND SC.HOME_SCORE IS NOT NULL
                 ORDER BY DSCORE DESC) A) B
- WHERE B.RNUM < 5;
+ WHERE B.RNUM =1;
+
+SELECT A.*
+FROM
+    (SELECT SC.SCHE_DATE 경기날짜,
+            HT.TEAM_NAME||'VS'||AT.TEAM_NAME 홈팀VS원정팀,
+           CASE
+            WHEN (SC.HOME_SCORE > SC.AWAY_SCORE) THEN (SC.HOME_SCORE - SC.AWAY_SCORE)
+            ELSE (SC.AWAY_SCORE - SC.HOME_SCORE)
+           END||'점수경기' 점수차
+    FROM SCHEDULE SC
+        JOIN TEAM HT
+            ON HT.TEAM_ID LIKE SC.HOMETEAM_ID
+        JOIN TEAM AT
+            ON AT.TEAM_ID LIKE SC.AWAYTEAM_ID
+    WHERE SC.SCHE_DATE LIKE '2012%'
+        AND SC.GUBUN LIKE 'Y'
+    ORDER BY 점수차 DESC) A
+WHERE ROWNUM LIKE 1
+;
+
 
 -- 029
 -- 좌석수대가 많은대로 스타디움 순서 매기기
 
-SELECT ROWNUM "NO.", A.STADIUM_NAME 경기장, A.SEAT_COUNT 좌석수
+SELECT ROWNUM "NO.", A.*
   FROM (SELECT STADIUM_NAME, SEAT_COUNT
         FROM STADIUM
         ORDER BY SEAT_COUNT DESC) A;
@@ -599,3 +613,26 @@ FROM
     GROUP BY A.WINNER
     ORDER BY 승리수 DESC) B
 ;
+SELECT ROWNUM "순위", B.*
+FROM
+    (SELECT 
+        A.WINNER,
+        COUNT(A.WINNER) WIN
+    FROM
+        (SELECT 
+            CASE 
+                WHEN SC.HOME_SCORE > SC.AWAY_SCORE THEN HT.TEAM_NAME
+                WHEN SC.AWAY_SCORE > SC.HOME_SCORE THEN AT.TEAM_NAME
+                ELSE '무승부' 
+            END WINNER
+        FROM SCHEDULE SC
+            JOIN TEAM HT
+            ON HT.TEAM_ID LIKE SC.HOMETEAM_ID
+            JOIN TEAM AT
+            ON AT.TEAM_ID LIKE SC.AWAYTEAM_ID
+        WHERE SC.SCHE_DATE LIKE '2012%') A
+    WHERE A.WINNER NOT LIKE '무승부'
+    GROUP BY A.WINNER
+    ORDER BY WIN DESC) B
+;
+      
